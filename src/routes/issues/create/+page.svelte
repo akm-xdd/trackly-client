@@ -1,210 +1,247 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import { isLoggedIn } from '$lib/auth';
-  import { apiCall, uploadFile } from '$lib/api';
+ import { onMount } from 'svelte';
+ import { goto } from '$app/navigation';
+ import { isLoggedIn } from '$lib/auth';
+ import { apiCall, uploadFileWithProgress } from '$lib/api';
 
-  let title = '';
-  let description = '';
-  let severity = 'MEDIUM';
-  let file: File | null = null;
-  let fileInput: HTMLInputElement;
-  let loading = false;
-  let error = '';
+ let title = '';
+ let description = '';
+ let severity = 'MEDIUM';
+ let file: File | null = null;
+ let fileInput: HTMLInputElement;
+ let loading = false;
+ let error = '';
+ let uploadProgress = 0;
+ let isUploading = false;
 
-  onMount(() => {
-    if (!$isLoggedIn) {
-      goto('/login');
-    }
-  });
-async function handleSubmit() {
-  if (!title.trim() || !description.trim()) {
-    error = 'Title and description are required';
-    return;
-  }
+ onMount(() => {
+   if (!$isLoggedIn) {
+     goto('/login');
+   }
+ });
 
-  loading = true;
-  error = '';
+ async function handleSubmit() {
+   if (!title.trim() || !description.trim()) {
+     error = 'Title and description are required';
+     return;
+   }
 
-  try {
-    let fileUrl = null;
+   loading = true;
+   error = '';
 
-    if (file) {
-      // Use the new upload function with automatic token refresh
-      const uploadResult = await uploadFile(file);
-      fileUrl = uploadResult.file_url;
-    }
+   try {
+     let fileUrl = null;
 
-    const issueData = {
-      title: title.trim(),
-      description: description.trim(),
-      severity,
-      file_url: fileUrl
-    };
+     if (file) {
+       isUploading = true;
+       uploadProgress = 0;
+       
+       const uploadResult = await uploadFileWithProgress(file, (progress) => {
+         uploadProgress = progress;
+       });
+       
+       fileUrl = uploadResult.file_url;
+       isUploading = false;
+     }
 
-    await apiCall('/issues', {
-      method: 'POST',
-      body: JSON.stringify(issueData)
-    });
+     const issueData = {
+       title: title.trim(),
+       description: description.trim(),
+       severity,
+       file_url: fileUrl
+     };
 
-    goto('/issues');
-  } catch (err) {
-    error = err.message || 'Failed to create issue. Please try again.';
-    console.error(err);
-  }
+     await apiCall('/issues', {
+       method: 'POST',
+       body: JSON.stringify(issueData)
+     });
 
-  loading = false;
-}
+     goto('/issues');
+   } catch (err) {
+     error = err.message || 'Failed to create issue. Please try again.';
+     console.error(err);
+     isUploading = false;
+   }
 
-  function handleFileChange(event: Event) {
-    const target = event.target as HTMLInputElement;
-    file = target.files?.[0] || null;
-  }
+   loading = false;
+ }
 
-  function removeFile() {
-    file = null;
-    if (fileInput) {
-      fileInput.value = '';
-    }
-  }
+ function handleFileChange(event: Event) {
+   const target = event.target as HTMLInputElement;
+   file = target.files?.[0] || null;
+ }
 
-  function formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
+ function removeFile() {
+   file = null;
+   if (fileInput) {
+     fileInput.value = '';
+   }
+ }
+
+ function formatFileSize(bytes: number): string {
+   if (bytes === 0) return '0 Bytes';
+   const k = 1024;
+   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+   const i = Math.floor(Math.log(bytes) / Math.log(k));
+   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+ }
 </script>
 
 <div class="max-w-2xl mx-auto">
-  <div class="mb-6">
-    <h1 class="text-3xl font-bold text-gray-900">Create New Issue</h1>
-    <p class="mt-2 text-gray-600">Report a bug, request a feature, or describe any issue.</p>
-  </div>
+ <div class="mb-6">
+   <h1 class="text-3xl font-bold text-gray-900">Create New Issue</h1>
+   <p class="mt-2 text-gray-600">Report a bug, request a feature, or describe any issue.</p>
+ </div>
 
-  <div class="bg-white shadow rounded-lg p-6">
-    <form on:submit|preventDefault={handleSubmit} class="space-y-6">
-      <div>
-        <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
-          Title *
-        </label>
-        <input
-          id="title"
-          bind:value={title}
-          type="text"
-          required
-          maxlength="255"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-          placeholder="Brief description of the issue"
-        />
-      </div>
+ <div class="bg-white shadow rounded-lg p-6">
+   <form on:submit|preventDefault={handleSubmit} class="space-y-6">
+     <div>
+       <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+         Title *
+       </label>
+       <input
+         id="title"
+         bind:value={title}
+         type="text"
+         required
+         maxlength="255"
+         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+         placeholder="Brief description of the issue"
+       />
+     </div>
 
-      <div>
-        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
-          Description *
-        </label>
-        <textarea
-          id="description"
-          bind:value={description}
-          required
-          rows="6"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-          placeholder="Provide detailed information about the issue..."
-        ></textarea>
-      </div>
+     <div>
+       <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+         Description *
+       </label>
+       <textarea
+         id="description"
+         bind:value={description}
+         required
+         rows="6"
+         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+         placeholder="Provide detailed information about the issue..."
+       ></textarea>
+     </div>
 
-      <div>
-        <label for="severity" class="block text-sm font-medium text-gray-700 mb-2">
-          Severity
-        </label>
-        <select
-          id="severity"
-          bind:value={severity}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-        >
-          <option value="LOW">Low</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="HIGH">High</option>
-          <option value="CRITICAL">Critical</option>
-        </select>
-      </div>
+     <div>
+       <label for="severity" class="block text-sm font-medium text-gray-700 mb-2">
+         Severity
+       </label>
+       <select
+         id="severity"
+         bind:value={severity}
+         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+       >
+         <option value="LOW">Low</option>
+         <option value="MEDIUM">Medium</option>
+         <option value="HIGH">High</option>
+         <option value="CRITICAL">Critical</option>
+       </select>
+     </div>
 
-      <div>
-        <label for="file" class="block text-sm font-medium text-gray-700 mb-2">
-          Attachment (optional)
-        </label>
-        
-        {#if !file}
-          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <div class="mt-4">
-              <label for="file-upload" class="cursor-pointer">
-                <span class="text-indigo-600 hover:text-indigo-500 font-medium">Upload a file</span>
-                <span class="text-gray-500"> or drag and drop</span>
-              </label>
-              <input
-                id="file-upload"
-                bind:this={fileInput}
-                type="file"
-                class="sr-only"
-                on:change={handleFileChange}
-                accept="image/*,.pdf,.doc,.docx,.txt"
-              />
-            </div>
-            <p class="text-xs text-gray-500 mt-2">
-              PNG, JPG, PDF, DOC up to 50MB
-            </p>
-          </div>
-        {:else}
-          <div class="border border-gray-300 rounded-lg p-4">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-3">
-                <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                <div>
-                  <p class="text-sm font-medium text-gray-900">{file.name}</p>
-                  <p class="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                on:click={removeFile}
-                class="text-red-600 hover:text-red-800"
-              >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        {/if}
-      </div>
+     <div>
+       <label for="file" class="block text-sm font-medium text-gray-700 mb-2">
+         Attachment (optional)
+       </label>
+       
+       {#if !file}
+         <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+           <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+             <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+           </svg>
+           <div class="mt-4">
+             <label for="file-upload" class="cursor-pointer">
+               <span class="text-indigo-600 hover:text-indigo-500 font-medium">Upload a file</span>
+               <span class="text-gray-500"> or drag and drop</span>
+             </label>
+             <input
+               id="file-upload"
+               bind:this={fileInput}
+               type="file"
+               class="sr-only"
+               on:change={handleFileChange}
+               accept="image/*,.pdf,.doc,.docx,.txt"
+             />
+           </div>
+           <p class="text-xs text-gray-500 mt-2">
+             PNG, JPG, PDF, DOC up to 50MB
+           </p>
+         </div>
+       {:else}
+         <div class="border border-gray-300 rounded-lg p-4">
+           <div class="flex items-center justify-between">
+             <div class="flex items-center space-x-3">
+               <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+               </svg>
+               <div>
+                 <p class="text-sm font-medium text-gray-900">{file.name}</p>
+                 <p class="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+               </div>
+             </div>
+             <button
+               type="button"
+               on:click={removeFile}
+               class="text-red-600 hover:text-red-800"
+             >
+               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+               </svg>
+             </button>
+           </div>
+         </div>
+       {/if}
+     </div>
 
-      {#if error}
-        <div class="bg-red-50 border border-red-200 rounded-md p-4">
-          <div class="text-red-800 text-sm">{error}</div>
-        </div>
-      {/if}
+     {#if isUploading}
+       <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+         <div class="flex items-center space-x-3">
+           <svg class="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+           </svg>
+           <div class="flex-1">
+             <p class="text-sm font-medium text-blue-800">Uploading file...</p>
+             <div class="mt-2 bg-blue-200 rounded-full h-2">
+               <div 
+                 class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                 style="width: {uploadProgress}%"
+               ></div>
+             </div>
+             <p class="text-xs text-blue-600 mt-1">{uploadProgress}% complete</p>
+           </div>
+         </div>
+       </div>
+     {/if}
 
-      <div class="flex justify-between pt-4">
-        <a
-          href="/issues"
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          Cancel
-        </a>
-        <button
-          type="submit"
-          disabled={loading}
-          class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Creating...' : 'Create Issue'}
-        </button>
-      </div>
-    </form>
-  </div>
+     {#if error}
+       <div class="bg-red-50 border border-red-200 rounded-md p-4">
+         <div class="text-red-800 text-sm">{error}</div>
+       </div>
+     {/if}
+
+     <div class="flex justify-between pt-4">
+       <a
+         href="/issues"
+         class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+       >
+         Cancel
+       </a>
+       <button
+         type="submit"
+         disabled={loading || isUploading}
+         class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+       >
+         {#if isUploading}
+           Uploading... ({uploadProgress}%)
+         {:else if loading}
+           Creating...
+         {:else}
+           Create Issue
+         {/if}
+       </button>
+     </div>
+   </form>
+ </div>
 </div>
