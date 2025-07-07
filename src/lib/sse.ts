@@ -29,7 +29,8 @@ connect() {
   console.log('Attempting SSE connection with token'); 
   try {
     // Pass token as query parameter since EventSource doesn't support headers
-    const url = `${import.meta.env.VITE_API_BASE_URL}/issues/events?token=${encodeURIComponent(token)}`;
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    const url = `${API_BASE}/issues/events?token=${encodeURIComponent(token)}`;
 
     console.log('SSE URL:', url);
     

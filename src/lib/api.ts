@@ -1,9 +1,8 @@
 import { browser } from '$app/environment';
 
 const API_BASE = browser ? 
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api' :
+  import.meta.env.PUBLIC_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api' :
   'http://localhost:8000/api';
-  
 export async function apiCall(endpoint: string, options: RequestInit = {}) {
   const token = browser ? localStorage.getItem('token') : null;
   

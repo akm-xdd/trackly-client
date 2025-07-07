@@ -18,7 +18,7 @@
     if (code) {
       try {
         // Call your FastAPI backend directly
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google/exchange`, {
+        const response = await fetch(`${import.meta.env.PUBLIC_API_BASE_URL || import.meta.env.VITE_API_BASE_URL}/auth/google/exchange`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

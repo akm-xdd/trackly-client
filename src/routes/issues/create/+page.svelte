@@ -34,7 +34,7 @@
         const formData = new FormData();
         formData.append('file', file);
 
-        const uploadResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/files/upload`, {
+        const uploadResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/files/upload`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
