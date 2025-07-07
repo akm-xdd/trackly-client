@@ -3,9 +3,12 @@ import { browser } from '$app/environment';
 const API_BASE = browser ? 
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api' :
   'http://localhost:8000/api';
-
+  
 export async function apiCall(endpoint: string, options: RequestInit = {}) {
   const token = browser ? localStorage.getItem('token') : null;
+  
+  console.log('Making API call to:', `${API_BASE}${endpoint}`);
+  console.log('Request options:', options);
   
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
@@ -16,8 +19,13 @@ export async function apiCall(endpoint: string, options: RequestInit = {}) {
     ...options,
   });
   
+  console.log('Response status:', response.status);
+  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+  
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status}`);
+    const errorText = await response.text();
+    console.error('API Error Response:', errorText);
+    throw new Error(`API Error: ${response.status} - ${errorText}`);
   }
   
   return response.json();
