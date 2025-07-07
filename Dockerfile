@@ -42,16 +42,16 @@ RUN chown -R sveltekit:nodejs /app
 USER sveltekit
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5173
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=5173
 ENV HOST=0.0.0.0
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:3000/health || exit 1
+    CMD wget --quiet --tries=1 --spider http://localhost:5173/health || exit 1
 
 # Start the application
 CMD ["node", "index.js"]

@@ -10,20 +10,22 @@
   let loading = false;
   let googleLoading = false;
 
-  async function handleLogin() {
-    loading = true;
-    error = '';
+async function handleLogin() {
+  try {
+    const response = await login(email, password);
     
-    try {
-      const response = await login(email, password);
-      setAuth(response.user, response.tokens.access_token);
-      goto('/');
-    } catch (err) {
-      error = 'Login failed. Please check your credentials.';
-    }
+    // Store both tokens
+    setAuth(
+      response.user, 
+      response.tokens.access_token,
+      response.tokens.refresh_token  // Make sure to store this
+    );
     
-    loading = false;
+    goto('/');
+  } catch (err) {
+    error = 'Login failed. Please check your credentials.';
   }
+}
 
   async function handleGoogleLogin() {
     googleLoading = true;

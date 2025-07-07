@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
+import { goto } from '$app/navigation';
 
 export const user = writable(null);
 export const isLoggedIn = writable(false);
@@ -9,23 +10,34 @@ export function initAuth() {
   if (!browser) return;
   
   const token = localStorage.getItem('token');
-  if (token) {
-    // TODO: Verify token with backend
-    // For now, assume valid if exists
+  const refreshToken = localStorage.getItem('refreshToken');
+  
+  if (token && refreshToken) {
+    // Token exists, but we'll validate it on the first API call
     isLoggedIn.set(true);
-    // Optionally decode JWT to get user info
   }
   authLoading.set(false);
 }
 
-export function setAuth(userData: any, token: string) {
-  localStorage.setItem('token', token);
+export function setAuth(userData: any, accessToken: string, refreshToken?: string) {
+  localStorage.setItem('token', accessToken);
+  
+  if (refreshToken) {
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+  
   user.set(userData);
   isLoggedIn.set(true);
 }
 
 export function logout() {
   localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
   user.set(null);
   isLoggedIn.set(false);
+  
+  // Redirect to login page
+  if (browser) {
+    goto('/login');
+  }
 }

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { isLoggedIn } from '$lib/auth';
-  import { apiCall } from '$lib/api';
+  import { apiCall, uploadFile } from '$lib/api';
 
   let title = '';
   let description = '';
@@ -17,59 +17,44 @@
       goto('/login');
     }
   });
-
-  async function handleSubmit() {
-    if (!title.trim() || !description.trim()) {
-      error = 'Title and description are required';
-      return;
-    }
-
-    loading = true;
-    error = '';
-
-    try {
-      let fileUrl = null;
-
-      if (file) {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const uploadResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/files/upload`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          },
-          body: formData
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error('File upload failed');
-        }
-
-        const uploadResult = await uploadResponse.json();
-        fileUrl = uploadResult.file_url;
-      }
-
-      const issueData = {
-        title: title.trim(),
-        description: description.trim(),
-        severity,
-        file_url: fileUrl
-      };
-
-      await apiCall('/issues', {
-        method: 'POST',
-        body: JSON.stringify(issueData)
-      });
-
-      goto('/issues');
-    } catch (err) {
-      error = 'Failed to create issue. Please try again.';
-      console.error(err);
-    }
-
-    loading = false;
+async function handleSubmit() {
+  if (!title.trim() || !description.trim()) {
+    error = 'Title and description are required';
+    return;
   }
+
+  loading = true;
+  error = '';
+
+  try {
+    let fileUrl = null;
+
+    if (file) {
+      // Use the new upload function with automatic token refresh
+      const uploadResult = await uploadFile(file);
+      fileUrl = uploadResult.file_url;
+    }
+
+    const issueData = {
+      title: title.trim(),
+      description: description.trim(),
+      severity,
+      file_url: fileUrl
+    };
+
+    await apiCall('/issues', {
+      method: 'POST',
+      body: JSON.stringify(issueData)
+    });
+
+    goto('/issues');
+  } catch (err) {
+    error = err.message || 'Failed to create issue. Please try again.';
+    console.error(err);
+  }
+
+  loading = false;
+}
 
   function handleFileChange(event: Event) {
     const target = event.target as HTMLInputElement;
